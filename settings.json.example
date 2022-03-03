@@ -1,0 +1,12 @@
+{
+    "ClientID": "Your bot's clientID goes here for authentication and spitting out the invite link",
+    "Token": "Your bot's token goes here for authentication",
+    "OwnerID": "The ID of the bot owner, who is specifically granted all commands",
+    "AllowedRoles": [
+        "List of role IDs that can manage Banner Bard",
+        "Members with ManageServer permission can also manage the bot."
+    ],
+    "GuildID": "Your guild's ID goes here.",
+    "LogChannelID": "Your channel ID which the banner bot will send error information if necessary",
+    "Prefix": "bb, "
+}

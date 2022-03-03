@@ -1,0 +1,19 @@
+[Unit]
+Description=Start Banner Bard Discord bot
+
+Wants=network.target
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+User=bard
+Group=bard
+WorkingDirectory=/srv/bard/banner-bard
+Environment="PRODUCTION=1"
+ExecStart=/srv/bard/banner-bard/banner-bard
+Restart=on-failure
+RestartSec=10
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
