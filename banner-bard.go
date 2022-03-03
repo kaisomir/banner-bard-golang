@@ -497,13 +497,27 @@ func cmdLs(ctx *CommandContext, args []string) {
 		return
 	}
 
+	page := 1
+	if len(args) != 1 {
+		if len(args) == 0 {
+			page = 1
+		} else {
+			ctx.SendUsage()
+			return
+		}
+	} else {
+		page, err = strconv.Atoi(args[0])
+	}
+
 	if len(taglist) == 0 {
 		ctx.Reply("It doesn't look like you have any tags, sire.")
 	} else {
-		message := "Your tags, sire:\n"
+		message := fmt.Sprintf("Page %d of your tags, sire:\n```", page)
+		taglist = taglist[(page-1)*20:(page-1)*20+20]
 		for _, tag := range taglist {
-			message += fmt.Sprintf("\n**%s**", tag.Name)
+			message += fmt.Sprintf("%s\n", tag.Name)
 		}
+		message += "```"
 
 		ctx.Reply(message)
 	}
