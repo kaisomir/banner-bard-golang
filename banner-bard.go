@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bwmarrin/discordgo"
 	"io"
 	"log"
 	"net/http"
@@ -29,6 +28,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 const SettingsFile = "settings.json"
@@ -498,22 +499,31 @@ func cmdLs(ctx *CommandContext, args []string) {
 	}
 
 	page := 1
-	if len(args) != 1 {
-		if len(args) == 0 {
-			page = 1
-		} else {
-			ctx.SendUsage()
-			return
-		}
-	} else {
+	if len(args) != 0 {
 		page, err = strconv.Atoi(args[0])
+	}
+	if page == 0 {
+		ctx.Reply("Page numbers are positive, sire.")
+		return
 	}
 
 	if len(taglist) == 0 {
 		ctx.Reply("It doesn't look like you have any tags, sire.")
 	} else {
-		message := fmt.Sprintf("Page %d of your tags, sire:\n```", page)
-		taglist = taglist[(page-1)*20:(page-1)*20+20]
+		maxct := (page-1)*20 + 20
+		if maxct > len(taglist) {
+			maxct = len(taglist)
+		}
+		message := fmt.Sprintf("Tags %d to %d, sire:\n```", (page-1)*20+1, maxct)
+		mintag := (page-1)*20 - 1
+		if mintag < 0 {
+			el1 := taglist[0]
+			taglist = taglist[:(page-1)*20+20]
+			taglist = append([]Tag{el1}, taglist...)
+		} else {
+			taglist = taglist[mintag : (page-1)*20+20]
+		}
+
 		for _, tag := range taglist {
 			message += fmt.Sprintf("%s\n", tag.Name)
 		}
