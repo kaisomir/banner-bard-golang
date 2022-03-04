@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -504,6 +505,12 @@ func cmdLs(ctx *CommandContext, args []string) {
 	}
 	if page == 0 {
 		ctx.Reply("Page numbers are positive, sire.")
+		return
+	}
+
+	if (page-1)*20 >= len(taglist) {
+		pagect := int(math.Ceil(float64(len(taglist)/20))) + 1
+		ctx.Reply(fmt.Sprintf("Sire, you only have %d pages of tags.", pagect))
 		return
 	}
 
