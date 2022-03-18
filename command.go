@@ -18,8 +18,9 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/bwmarrin/discordgo"
 	"strings"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 /* The permission bits. When giving a command a permission, you pick

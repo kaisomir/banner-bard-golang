@@ -212,7 +212,7 @@ func parseTime(raw string) (time.Duration, error) {
 			unit = TimeUnits[chr]
 			goto parse
 		default:
-			return 0, errors.New("Character not digit or time unit")
+			return 0, errors.New("character not digit or time unit")
 		}
 	}
 
@@ -254,7 +254,7 @@ func init() {
 		Group("Playlists").
 		Compound("playlist", BuildCompoundCommand(PermEveryone).
 			Simple("new", cmdPlaylistNew,
-				"to create or replace a new playlist",
+				"to create a new playlist",
 				"PLAYLIST TAGS...", PermDefault).
 			Simple("add", cmdPlaylistAdd,
 				"to add tags to a playlist",
@@ -323,7 +323,7 @@ func main() {
 	// Wait here until Ctrl-C or other term signal is received.
 	logger.Println("Bot is now running. Press ^C to exit.")
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
 	// Close the session with dignity.
@@ -499,17 +499,26 @@ func cmdLs(ctx *CommandContext, args []string) {
 		return
 	}
 
-	page := 1
+	page := 0
 	if len(args) != 0 {
 		page, err = strconv.Atoi(args[0])
+	} else {
+		page = 1
 	}
-	if page == 0 {
+
+	if err != nil {
+		ctx.Reply(err.Error())
+	}
+
+	if page <= 0 {
 		ctx.Reply("Page numbers are positive, sire.")
 		return
 	}
 
-	if (page-1)*20 >= len(taglist) {
-		pagect := int(math.Ceil(float64(len(taglist)/20))) + 1
+	page--
+
+	if page*20 >= len(taglist) {
+		pagect := int(math.Ceil(float64(len(taglist))/float64(20))) + 1
 		ctx.Reply(fmt.Sprintf("Sire, you only have %d pages of tags.", pagect))
 		return
 	}
@@ -517,19 +526,15 @@ func cmdLs(ctx *CommandContext, args []string) {
 	if len(taglist) == 0 {
 		ctx.Reply("It doesn't look like you have any tags, sire.")
 	} else {
-		maxct := (page-1)*20 + 20
-		if maxct > len(taglist) {
-			maxct = len(taglist)
+		mintag := page * 20
+		maxtag := page*20 + 20
+		if maxtag > len(taglist) {
+			maxtag = len(taglist)
 		}
-		message := fmt.Sprintf("Tags %d to %d, sire:\n```", (page-1)*20+1, maxct)
-		mintag := (page-1)*20 - 1
-		if mintag < 0 {
-			el1 := taglist[0]
-			taglist = taglist[:(page-1)*20+20]
-			taglist = append([]Tag{el1}, taglist...)
-		} else {
-			taglist = taglist[mintag : (page-1)*20+20]
-		}
+		message := fmt.Sprintf("Tags %d through %d, sire:\n```", mintag+1, maxtag)
+		taglist = append([]Tag{taglist[0]}, taglist[mintag:maxtag]...)
+		// I honestly don't know why slicing has to be done like this, but this works where
+		// taglist[mintag:maxtag] by itself doesn't, even though the slice start is supposed to be included
 
 		for _, tag := range taglist {
 			message += fmt.Sprintf("%s\n", tag.Name)
@@ -571,9 +576,18 @@ func cmdPlaylistNew(ctx *CommandContext, args []string) {
 	playlist := args[0]
 	tags := args[1:]
 
-	err := editPlaylist(playlist, tags)
+	exists, err := playlistExists(playlist)
+	if exists {
+		ctx.Reply(fmt.Sprintf("Sire, I don't remember a playlist titled **%s**.", playlist))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return
+	}
+
+	err = editPlaylist(playlist, tags)
 	if err != nil && err.Error() == SqlForeignKey {
-		ctx.Reply("Sire, I don't know all those tags yet..")
+		ctx.Reply("Sire, I don't know all those tags yet...")
 		return
 	} else if handleCommandErrors(ctx, SqlError, err) {
 		return
@@ -591,7 +605,16 @@ func cmdPlaylistAdd(ctx *CommandContext, args []string) {
 	playlist := args[0]
 	tags := args[1:]
 
-	err := appendPlaylist(playlist, tags)
+	exists, err := playlistExists(playlist)
+	if !exists {
+		ctx.Reply(fmt.Sprintf("Sire, I don't remember a playlist titled **%s**.", playlist))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return
+	}
+
+	err = appendPlaylist(playlist, tags)
 	if !handleCommandErrors(ctx, SqlError, err) {
 		ctx.Reply("I'll add those tags to " + playlist + ".")
 	}
@@ -606,7 +629,16 @@ func cmdPlaylistRm(ctx *CommandContext, args []string) {
 	playlist := args[0]
 	tags := args[1:]
 
-	err := reducePlaylist(playlist, tags)
+	exists, err := playlistExists(playlist)
+	if !exists {
+		ctx.Reply(fmt.Sprintf("Sire, I don't remember a playlist titled **%s**.", playlist))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return
+	}
+
+	err = reducePlaylist(playlist, tags)
 	if !handleCommandErrors(ctx, SqlError, err) {
 		ctx.Reply("I'll remove those tags from " + playlist + ".")
 	}
@@ -701,6 +733,16 @@ func cmdPlaylistShow(ctx *CommandContext, args []string) {
 	}
 
 	playlist := args[0]
+
+	exists, err := playlistExists(playlist)
+	if !exists {
+		ctx.Reply(fmt.Sprintf("Sire, I don't remember a playlist titled **%s**.", playlist))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+		return
+	}
+
 	tags, err := playlistTags(playlist)
 	if handleCommandErrors(ctx, SqlError, err) {
 		return
@@ -791,9 +833,9 @@ func cmdImport(ctx *CommandContext, args []string) {
 		}
 
 		if len(record) != 3 {
-			errs = append(errs, errors.New(fmt.Sprintf(
-				"I expected 3 entries on line %d, but I found %d.",
-				lineno, len(record))))
+			errs = append(errs, fmt.Errorf(
+				"expected 3 entries on line %d, but found %d",
+				lineno, len(record)))
 			continue
 		}
 
