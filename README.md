@@ -1,3 +1,7 @@
+# THIS IS NO LONGER BEING MAINTAINED
+With Discord's introduction of slash commands, discord.go's implementation has discouraged me from updating, and as such, I will be recreating this in Python. The repository should soon be viewable on my GitHub, if it is not already.
+- kaisomir
+
 # Banner Bard
 Banner-serving discord bot, sire.
 
